@@ -1,0 +1,17 @@
+{
+  "name": "AutoBitácora",
+  "short_name": "AutoBitácora",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#12304a",
+  "description": "Expediente digital de servicio automotriz",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
