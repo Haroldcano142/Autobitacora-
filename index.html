@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#12304a">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <title>AutoBitácora</title>
 <style>
 :root{--navy:#12304a;--blue:#176b87;--bg:#f3f6f8;--line:#dbe3e8;--ink:#172b3a}
@@ -22,6 +24,18 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
 <body>
 <header><h1>🚘 AutoBitácora</h1><p>Expediente digital de servicio automotriz</p></header>
 <main>
+<div class="card no-print">
+  <h2>Google Drive</h2>
+  <p class="muted">Conecta tu cuenta para guardar y recuperar expedientes creados por AutoBitácora. Los archivos de Drive quedan sujetos a los permisos de tu cuenta de Google.</p>
+  <div class="actions">
+    <button class="btn" type="button" id="driveConnectBtn">Conectar Google Drive</button>
+    <button class="btn secondary" type="button" id="driveSaveBtn" disabled>Guardar expediente en Drive</button>
+    <button class="btn secondary" type="button" id="driveListBtn" disabled>Buscar expedientes en Drive</button>
+    <button class="btn secondary" type="button" id="driveDisconnectBtn">Desconectar</button>
+  </div>
+  <p id="driveStatus" class="muted">Pendiente de configuración del ID de cliente OAuth.</p>
+  <div id="driveResults"></div>
+</div>
 <div class="card">
   <div class="grid">
     <div class="field"><label for="search">Buscar expediente guardado</label><input id="search" placeholder="Placas, VIN, cliente o folio"></div>
@@ -79,6 +93,115 @@ document.getElementById('importFile').onchange=async e=>{try{const obj=JSON.pars
 document.getElementById('pdfBtn').onclick=()=>{const privateField=form.elements.privateNotes;const old=privateField.value;privateField.value='[Nota privada excluida del reporte]';window.print();privateField.value=old};
 document.getElementById('photos').onchange=e=>{document.getElementById('photoPreview').textContent=`${e.target.files.length} archivo(s) seleccionado(s). Nota: los archivos no se guardan de forma permanente en esta versión.`};
 form.elements.received.value=new Date().toISOString().slice(0,10);renderItems();
+
+// Integración inicial con Google Drive mediante Google Identity Services.
+// No almacena tokens en localStorage y no utiliza el secreto OAuth.
+let driveAccessToken = null;
+let driveTokenClient = null;
+let driveReady = false;
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+function driveStatus(msg){ document.getElementById('driveStatus').textContent=msg; }
+function driveHeaders(){ return {Authorization:'Bearer '+driveAccessToken}; }
+function driveConfigured(){
+  return window.AUTOBITACORA_CONFIG &&
+    window.AUTOBITACORA_CONFIG.GOOGLE_CLIENT_ID &&
+    !String(window.AUTOBITACORA_CONFIG.GOOGLE_CLIENT_ID).includes('PEGA_AQUI');
+}
+function initDrive(){
+  if(!driveConfigured()){
+    driveStatus('Falta configurar el ID de cliente OAuth en config.js. No pegues el secreto del cliente.');
+    return;
+  }
+  if(!window.google || !google.accounts || !google.accounts.oauth2){
+    driveStatus('Cargando el servicio de autorización de Google. Recarga la página en unos segundos.');
+    return;
+  }
+  driveTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id: window.AUTOBITACORA_CONFIG.GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (response)=>{
+      if(response.error){driveStatus('No se pudo autorizar Google Drive: '+response.error);return;}
+      driveAccessToken=response.access_token;
+      driveReady=true;
+      document.getElementById('driveSaveBtn').disabled=false;
+      document.getElementById('driveListBtn').disabled=false;
+      driveStatus('Google Drive conectado temporalmente. Guarda o busca expedientes. Al cerrar o recargar tendrás que autorizar de nuevo.');
+      await listDriveRecords();
+    }
+  });
+  driveStatus('Listo para conectar Google Drive.');
+}
+document.getElementById('driveConnectBtn').addEventListener('click',()=>{
+  if(!driveConfigured()){driveStatus('Configura primero el ID de cliente OAuth en config.js.');return;}
+  if(!driveTokenClient){initDrive();}
+  if(driveTokenClient) driveTokenClient.requestAccessToken({prompt:'consent'});
+  else driveStatus('No se pudo cargar Google Identity Services. Comprueba la conexión y recarga.');
+});
+document.getElementById('driveDisconnectBtn').addEventListener('click',()=>{
+  if(driveAccessToken && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(driveAccessToken,()=>{});
+  driveAccessToken=null;driveReady=false;
+  document.getElementById('driveSaveBtn').disabled=true;document.getElementById('driveListBtn').disabled=true;
+  document.getElementById('driveResults').innerHTML='';
+  driveStatus('Desconectado. El token temporal se ha descartado.');
+});
+async function driveApi(url,options={}){
+  if(!driveAccessToken) throw new Error('Primero conecta Google Drive.');
+  const response=await fetch(url,{...options,headers:{...driveHeaders(),...(options.headers||{})}});
+  if(!response.ok){let msg='';try{msg=(await response.json()).error.message;}catch{}throw new Error(msg||('Error de Google Drive ('+response.status+')'));}
+  if(response.status===204)return null;
+  return response.json();
+}
+async function listDriveRecords(){
+  if(!driveAccessToken)return;
+  try{
+    const q=encodeURIComponent("name contains 'AutoBitacora_' and mimeType = 'application/json' and trashed = false");
+    const result=await driveApi('https://www.googleapis.com/drive/v3/files?q='+q+'&pageSize=100&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime,mimeType)');
+    const out=document.getElementById('driveResults');out.innerHTML='';
+    const files=result.files||[];
+    if(!files.length){out.textContent='Todavía no hay expedientes de AutoBitácora en esta cuenta de Drive.';return;}
+    files.forEach(file=>{
+      const row=document.createElement('div');row.className='vehicle';
+      const title=document.createElement('strong');title.textContent=file.name;
+      const date=document.createElement('span');date.textContent=' · '+new Date(file.modifiedTime).toLocaleString('es-MX');
+      const btn=document.createElement('button');btn.type='button';btn.className='btn secondary';btn.textContent='Cargar';
+      btn.onclick=()=>loadDriveRecord(file.id);
+      row.append(title,date,document.createTextNode(' '),btn);out.appendChild(row);
+    });
+    driveStatus('Drive conectado. Expedientes encontrados: '+files.length+'.');
+  }catch(e){driveStatus('Error al buscar en Drive: '+e.message);}
+}
+async function loadDriveRecord(id){
+  try{
+    const response=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?alt=media',{headers:driveHeaders()});
+    if(!response.ok)throw new Error('No se pudo descargar el expediente ('+response.status+').');
+    const d=await response.json();
+    setData(d);switchTab('vehicle');driveStatus('Expediente cargado desde Drive: '+(d.folio||'sin folio')+'.');
+  }catch(e){driveStatus('Error al cargar: '+e.message);}
+}
+async function saveDriveRecord(){
+  try{
+    if(!driveAccessToken)throw new Error('Primero conecta Google Drive.');
+    const d=getData();
+    if(!d.folio || !d.folio.trim())throw new Error('Indica un folio antes de guardar.');
+    const fileName='AutoBitacora_'+d.folio.replace(/[^a-zA-Z0-9_-]/g,'_')+'.json';
+    const q=encodeURIComponent("name = '"+fileName.replace(/'/g,"\\'")+"' and trashed = false");
+    const found=await driveApi('https://www.googleapis.com/drive/v3/files?q='+q+'&pageSize=10&fields=files(id,name)');
+    const metadata={name:fileName,mimeType:'application/json',description:'Expediente creado por AutoBitácora'};
+    const boundary='autobitacora_boundary';
+    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(d)+'\r\n--'+boundary+'--';
+    let url='https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name';
+    let method='POST';
+    if(found.files && found.files.length){url='https://www.googleapis.com/upload/drive/v3/files/'+found.files[0].id+'?uploadType=multipart&fields=id,name';method='PATCH';}
+    const response=await fetch(url,{method,headers:{...driveHeaders(),'Content-Type':'multipart/related; boundary='+boundary},body});
+    if(!response.ok){let m='';try{m=(await response.json()).error.message;}catch{}throw new Error(m||'No se pudo guardar en Drive.');}
+    driveStatus('Expediente guardado en tu Google Drive: '+fileName+'.');
+    await listDriveRecords();
+  }catch(e){driveStatus('No se pudo guardar: '+e.message);}
+}
+document.getElementById('driveSaveBtn').addEventListener('click',saveDriveRecord);
+document.getElementById('driveListBtn').addEventListener('click',listDriveRecords);
+window.addEventListener('load',()=>setTimeout(initDrive,900));
+
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 </body></html>
