@@ -154,7 +154,7 @@ async function driveApi(url,options={}){
 async function listDriveRecords(){
   if(!driveAccessToken)return;
   try{
-    const q=encodeURIComponent("name contains and trashed = false");
+    const q=encodeURIComponent("name contains 'AutoBitacora_' and trashed = false");
     const result=await driveApi('https://www.googleapis.com/drive/v3/files?q='+q+'&pageSize=100&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime,mimeType)');
     const out=document.getElementById('driveResults');out.innerHTML='';
     const files=result.files||[];
