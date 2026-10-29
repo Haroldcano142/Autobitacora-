@@ -68,7 +68,7 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
 <section id="panel-checklist" class="hidden"><div class="card"><h2>Checklist de recepción</h2><p class="muted">Marca cada elemento y registra daños u observaciones.</p><div id="checklist" class="checklist"></div><div class="field" style="margin-top:14px"><label>Daños / observaciones de recepción</label><textarea name="damageNotes" placeholder="Ej. rayón en puerta derecha, golpe en defensa..."></textarea></div></div></section>
 <section id="panel-services" class="hidden"><div class="card"><h2>Servicios, refacciones y costos</h2><div class="grid"><div class="field"><label>Concepto</label><input id="itemName" placeholder="Afinación, aceite, filtro..."></div><div class="field"><label>Costo (MXN)</label><input id="itemCost" type="number" min="0" step=".01" placeholder="0.00"></div></div><div class="actions"><button class="btn secondary" type="button" id="addItem">Agregar concepto</button></div><div id="itemsList"></div><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div>Total estimado: <span id="total" class="total">$0.00 MXN</span></div><div class="field" style="margin-top:12px"><label>Trabajo realizado / recomendaciones</label><textarea name="workNotes"></textarea></div></div></section>
 <section id="panel-scanner" class="hidden"><div class="card"><h2>Reporte de escáner</h2><div class="grid"><div class="field"><label>Fecha del diagnóstico</label><input name="scanDate" type="date"></div><div class="field"><label>Equipo / escáner</label><input name="scanTool" placeholder="Marca o modelo"></div><div class="field full"><label>Códigos DTC (ej. P0301)</label><input name="dtc" placeholder="Separar varios códigos con coma"></div><div class="field full"><label>Resultado / diagnóstico</label><textarea name="scanNotes" placeholder="Describe códigos, datos y conclusiones"></textarea></div><div class="field full"><label>Adjuntar reporte o foto</label><input name="scanFile" type="file" accept="image/*,.pdf"></div><div class="field full"><label>QR del reporte (si el proveedor proporciona un enlace, pega aquí el contenido)</label><input name="qrContent" placeholder="Texto o enlace obtenido del QR"></div></div><p class="muted">Esta primera versión permite guardar el contenido del QR manualmente. El escaneo directo con cámara se integrará en una siguiente etapa.</p></div></section>
-<section id="panel-delivery" class="hidden"><div class="card"><h2>Entrega, autorización y firmas</h2><div class="grid"><div class="field"><label>Fecha de entrega</label><input name="delivered" type="date"></div><div class="field"><label>Técnico responsable</label><input name="technician" placeholder="Nombre del técnico"></div><div class="field full private-notes-field">"><label>Observaciones para el cliente (aparecen en el reporte)</label><textarea name="customerNotes"></textarea></div><div class="field full"><label>Observaciones privadas del propietario</label><textarea name="privateNotes" placeholder="No incluir en el PDF del cliente"></textarea><span class="muted">Aviso: en esta maqueta las notas privadas no están protegidas con autenticación. No introduzcas información sensible hasta configurar el acceso seguro.</span></div><div class="field"><label>Firma del cliente (nombre escrito)</label><input name="clientSignature" placeholder="Nombre completo"></div><div class="field"><label>Firma del técnico (nombre escrito)</label><input name="techSignature" placeholder="Nombre completo"></div><div class="field full"><label>Autorización del cliente</label><textarea name="authorization" placeholder="Trabajos autorizados y condiciones"></textarea></div></div><div class="actions no-print"><button class="btn" type="button" id="pdfBtn">Imprimir / guardar como PDF</button></div><p class="muted">Para guardar como PDF, elige “Guardar como PDF” en el diálogo de impresión del navegador. Las firmas son nombres escritos, no firmas manuscritas verificadas.</p></div></section>
+<section id="panel-delivery" class="hidden"><div class="card"><h2>Entrega, autorización y firmas</h2><div class="grid"><div class="field"><label>Fecha de entrega</label><input name="delivered" type="date"></div><div class="field"><label>Técnico responsable</label><input name="technician" placeholder="Nombre del técnico"></div><div class="field full private-notes-field"><div class="field full"><label>Observaciones para el cliente (aparecen en el reporte)</label><textarea name="customerNotes"></textarea></div><div class="field full"><label>Observaciones privadas del propietario</label><textarea name="privateNotes" placeholder="No incluir en el PDF del cliente"></textarea><span class="muted">Aviso: en esta maqueta las notas privadas no están protegidas con autenticación. No introduzcas información sensible hasta configurar el acceso seguro.</span></div><div class="field"><label></label><input name="clientSignature" placeholder="Nombre completo"></div><div class="field"><label>Firma del técnico (nombre escrito)</label><input name="techSignature" placeholder="Nombre completo"></div><div class="field full"><label>Autorización del cliente</label><textarea name="authorization" placeholder="Trabajos autorizados y condiciones"></textarea></div></div><div class="actions no-print"><button class="btn" type="button" id="pdfBtn">Imprimir / guardar como PDF</button></div><p class="muted">Para guardar como PDF, elige “Guardar como PDF” en el diálogo de impresión del navegador. Las firmas son nombres escritos, no firmas manuscritas verificadas.</p></div></section>
 <div class="card no-print"><div class="actions"><button class="btn" type="button" id="saveBtn">Guardar expediente en este dispositivo</button><button class="btn secondary" type="button" id="loadBtn">Cargar folio</button></div><p id="status" class="muted">Los datos se guardan localmente en este navegador. Exporta respaldos periódicos.</p></div>
 </form>
 </main><footer>AutoBitácora · Prototipo inicial · No sustituye un sistema de respaldo y seguridad profesional.</footer>
@@ -81,17 +81,56 @@ const form=document.getElementById('recordForm');
 function switchTab(tab){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelectorAll('[id^="panel-"]').forEach(p=>p.classList.toggle('hidden',p.id!=='panel-'+tab))}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 function getData(){const data={};new FormData(form).forEach((v,k)=>{if(!(v instanceof File))data[k]=v});data.checklist={};form.querySelectorAll('input[type=checkbox]').forEach(x=>data.checklist[x.name]=x.checked);data.services=serviceItems;data.folio=form.elements.folio?.value||document.getElementById('folio').value;data.savedAt=new Date().toISOString();return data}
-function setData(d){form.reset();serviceItems=d.services||[];Object.entries(d).forEach(([k,v])=>{if(k==='checklist'||k==='services'||k==='savedAt'||k==='folio')return;const el=form.elements[k];if(el&&typeof v==='string'&&el.type!=='file')el.value=v});Object.entries(d.checklist||{}).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.checked=!!v});document.getElementById('folio').value=d.folio||'AB-0001';renderItems();document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.'}
+function setData(d){form.reset();serviceItems=d.services||[];Object.entries(d).forEach(([k,v])=>{if(k==='checklist'||k==='services'||k==='savedAt'||k==='folio')return;const el=form.elements[k];if(el&&typeof v==='string'&&el.type!=='file')el.value=v});Object.entries(d.checklist||{}).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.checked=!!v});document.getElementById('folio').value=d.folio||'AB-0001';renderItems();document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.'
+signatureCtx.clearRect(
+  0, 0, signaturePad.clientWidth, signaturePad.clientHeight
+);
+
+signatureHasInk = false;
+
+if (signatureData.value) {
+  const img = new Image();
+
+  img.onload = () => {
+    signatureCtx.drawImage(
+      img, 0, 0,
+      signaturePad.clientWidth,
+      signaturePad.clientHeight
+    );
+    signatureHasInk = true;
+  };
+
+  img.src = signatureData.value;
+}
+                   }
 function renderItems(){const list=document.getElementById('itemsList');list.innerHTML='';serviceItems.forEach((it,i)=>{const row=document.createElement('div');row.className='vehicle';row.innerHTML=`<strong>${escapeHtml(it.name)}</strong><span>${money(it.cost)}</span> <button type="button" class="btn secondary no-print" data-remove="${i}">Quitar</button>`;list.appendChild(row)});document.getElementById('total').textContent=money(serviceItems.reduce((s,x)=>s+Number(x.cost||0),0));list.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{serviceItems.splice(+b.dataset.remove,1);renderItems()})}
 function money(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n||0))}function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 document.getElementById('addItem').onclick=()=>{const name=document.getElementById('itemName').value.trim(),cost=Number(document.getElementById('itemCost').value);if(!name){alert('Escribe el concepto.');return}serviceItems.push({name,cost});document.getElementById('itemName').value='';document.getElementById('itemCost').value='';renderItems()};
 document.getElementById('saveBtn').onclick=()=>{const d=getData();if(!d.folio.trim()){alert('Indica un folio.');return}let db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');db[d.folio]=d;localStorage.setItem('autobitacora_records',JSON.stringify(db));currentId=d.folio;document.getElementById('status').textContent='Guardado localmente con folio '+d.folio+'. Exporta un respaldo para no perderlo.'};
 document.getElementById('loadBtn').onclick=()=>{const id=document.getElementById('folio').value.trim();const d=JSON.parse(localStorage.getItem('autobitacora_records')||'{}')[id];if(d)setData(d);else document.getElementById('status').textContent='No se encontró ese folio en este navegador.'};
-document.getElementById('newBtn').onclick=()=>{form.reset();serviceItems=[];renderItems();document.getElementById('folio').value='AB-'+String(Date.now()).slice(-6);document.getElementById('searchResults').innerHTML='';switchTab('vehicle');document.getElementById('status').textContent='Nuevo expediente. Completa los datos y guarda.'};
+document.getElementById('newBtn').onclick=()=>{form.reset();
+signatureCtx.clearRect(
+  0, 0, signaturePad.clientWidth, signaturePad.clientHeight
+);
+signatureData.value = '';
+signatureHasInk = false;
+serviceItems=[];renderItems();document.getElementById('folio').value='AB-'+String(Date.now()).slice(-6);document.getElementById('searchResults').innerHTML='';switchTab('vehicle');document.getElementById('status').textContent='Nuevo expediente. Completa los datos y guarda.'};
 document.getElementById('searchBtn').onclick=()=>{const q=document.getElementById('search').value.toLowerCase().trim();const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');const matches=Object.values(db).filter(d=>!q||JSON.stringify(d).toLowerCase().includes(q));const out=document.getElementById('searchResults');out.innerHTML='';if(!matches.length){out.textContent='No se encontraron expedientes.';return}matches.forEach(d=>{const el=document.createElement('div');el.className='vehicle';el.innerHTML=`<strong>${escapeHtml(d.folio)} · ${escapeHtml([d.make,d.model,d.year].filter(Boolean).join(' '))}</strong><span>${escapeHtml(d.plates||'Sin placas')} · ${escapeHtml(d.clientName||'Sin cliente')}</span> <button type="button" class="btn secondary">Abrir</button>`;el.querySelector('button').onclick=()=>{setData(d);switchTab('vehicle')};out.appendChild(el)})};
 document.getElementById('exportBtn').onclick=()=>{const blob=new Blob([localStorage.getItem('autobitacora_records')||'{}'],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='autobitacora-respaldo.json';a.click();URL.revokeObjectURL(a.href)};
 document.getElementById('importFile').onchange=async e=>{try{const obj=JSON.parse(await e.target.files[0].text());const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');localStorage.setItem('autobitacora_records',JSON.stringify({...db,...obj}));document.getElementById('status').textContent='Respaldo importado.'}catch{alert('No se pudo leer el respaldo.')}};
-document.getElementById('pdfBtn').onclick=()=>{const privateField=form.elements.privateNotes;const old=privateField.value;privateField.value='[Nota privada excluida del reporte]';window.print();privateField.value=old};
+document.getElementById('pdfBtn').onclick = () => {
+  finishSignature();
+
+  const privateField = form.elements.privateNotes;
+  const old = privateField.value;
+
+  privateField.value = '[Nota privada excluida del reporte]';
+
+  window.print();
+
+  privateField.value = old;
+};
+  
 document.getElementById('photos').onchange=e=>{document.getElementById('photoPreview').textContent=`${e.target.files.length} archivo(s) seleccionado(s). Nota: los archivos no se guardan de forma permanente en esta versión.`};
 form.elements.received.value=new Date().toISOString().slice(0,10);renderItems();
 
