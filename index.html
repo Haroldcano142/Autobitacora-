@@ -91,9 +91,7 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
 <div class="field full"><label>Daños / observaciones de recepción</label><textarea name="damageNotes" placeholder="Ej. rayón en puerta derecha, golpe en defensa..."></textarea></div>
 <div class="field full"><label>Fotografías (se adjuntan a este expediente en este dispositivo)</label><input name="photos" id="photos" type="file" accept="image/*" capture="environment" multiple><div id="photoPreview" class="muted"></div></div>
 </div></div>
-</section>
-  
-<div class="card">
+  <div class="card">
   <h2>Firma del cliente</h2>
   <p class="muted">El cliente puede firmar con el dedo dentro del recuadro.</p>
   <div class="signature-wrap">
@@ -103,7 +101,9 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
       <button class="btn secondary" type="button" id="clearSignature">Borrar firma</button>
     </div>
   </div>
-</div>
+  </div>
+</section>
+  
 <section id="panel-services" class="hidden"><div class="card"><h2>Servicios, refacciones y costos</h2><div class="grid"><div class="field"><label>Concepto</label><input id="itemName" placeholder="Afinación, aceite, filtro..."></div><div class="field"><label>Costo (MXN)</label><input id="itemCost" type="number" min="0" step=".01" placeholder="0.00"></div></div><div class="actions"><button class="btn secondary" type="button" id="addItem">Agregar concepto</button></div><div id="itemsList"></div><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div>Total estimado: <span id="total" class="total">$0.00 MXN</span></div><div class="field" style="margin-top:12px"><label>Trabajo realizado / recomendaciones</label><textarea name="workNotes"></textarea></div></div></section>
 <section id="panel-scanner" class="hidden">
   <div class="card">
