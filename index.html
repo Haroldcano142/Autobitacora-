@@ -187,7 +187,16 @@ resizeSignaturePad();
   
   function switchTab(tab){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelectorAll('[id^="panel-"]').forEach(p=>p.classList.toggle('hidden',p.id!=='panel-'+tab))}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-function getData(){const data={};new FormData(form).forEach((v,k)=>{if(!(v instanceof File))data[k]=v});data.checklist={};form.querySelectorAll('input[type=checkbox]').forEach(x=>data.checklist[x.name]=x.checked);data.services=serviceItems;data.folio=form.elements.folio?.value||document.getElementById('folio').value;data.savedAt=new Date().toISOString();return data}
+function getData(){
+  const data={};
+  new FormData(form).forEach((v,k)=>{
+    if(!(v instanceof File)) data[k]=v;
+  });
+  data.services=serviceItems;
+  data.folio=document.getElementById('folio').value;
+  data.savedAt=new Date().toISOString();
+  return data;
+}
 function setData(d){form.reset();serviceItems=d.services||[];Object.entries(d).forEach(([k,v])=>{if(k==='checklist'||k==='services'||k==='savedAt'||k==='folio')return;const el=form.elements[k];if(el&&typeof v==='string'&&el.type!=='file')el.value=v});Object.entries(d.checklist||{}).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.checked=!!v});document.getElementById('folio').value=d.folio||'AB-0001';renderItems();document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.'
 signatureCtx.clearRect(
   0, 0, signaturePad.clientWidth, signaturePad.clientHeight
