@@ -110,9 +110,6 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
 </form>
 </main><footer>AutoBitácora · Prototipo inicial · No sustituye un sistema de respaldo y seguridad profesional.</footer>
 <script>
-const checklistItems=["Carrocería exterior","Parabrisas y cristales","Luces delanteras/traseras","Llantas y rines","Espejos","Asientos e interiores","Tablero y testigos","Aire acondicionado","Equipo de sonido","Herramientas / gato","Refacción","Documentos del vehículo","Nivel de aceite","Nivel de refrigerante","Frenos (inspección visual)","Batería"];
-const checklistEl=document.getElementById('checklist');
-checklistItems.forEach((item,i)=>{const lab=document.createElement('label');lab.className='check';lab.innerHTML=`<input type="checkbox" name="check_${i}"> <span>${item}</span>`;checklistEl.appendChild(lab)}); 
 let serviceItems=[]; let currentId=null;
 const form=document.getElementById('recordForm');
 
