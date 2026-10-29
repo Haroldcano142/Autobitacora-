@@ -105,7 +105,55 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
   </div>
 </div>
 <section id="panel-services" class="hidden"><div class="card"><h2>Servicios, refacciones y costos</h2><div class="grid"><div class="field"><label>Concepto</label><input id="itemName" placeholder="Afinación, aceite, filtro..."></div><div class="field"><label>Costo (MXN)</label><input id="itemCost" type="number" min="0" step=".01" placeholder="0.00"></div></div><div class="actions"><button class="btn secondary" type="button" id="addItem">Agregar concepto</button></div><div id="itemsList"></div><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div>Total estimado: <span id="total" class="total">$0.00 MXN</span></div><div class="field" style="margin-top:12px"><label>Trabajo realizado / recomendaciones</label><textarea name="workNotes"></textarea></div></div></section>
-<section id="panel-scanner" class="hidden"><div class="card"><h2>Reporte de escáner</h2><div class="grid"><div class="field"><label>Fecha del diagnóstico</label><input name="scanDate" type="date"></div><div class="field"><label>Equipo / escáner</label><input name="scanTool" placeholder="Marca o modelo"></div><div class="field full"><label>Códigos DTC (ej. P0301)</label><input name="dtc" placeholder="Separar varios códigos con coma"></div><div class="field full"><label>Resultado / diagnóstico</label><textarea name="scanNotes" placeholder="Describe códigos, datos y conclusiones"></textarea></div><div class="field full"><label>Adjuntar reporte o foto</label><input name="scanFile" type="file" accept="image/*,.pdf"></div><div class="field full"><label>QR del reporte (si el proveedor proporciona un enlace, pega aquí el contenido)</label><input name="qrContent" placeholder="Texto o enlace obtenido del QR"></div></div><p class="muted">Esta primera versión permite guardar el contenido del QR manualmente. El escaneo directo con cámara se integrará en una siguiente etapa.</p></div></section>
+<section id="panel-scanner" class="hidden">
+  <div class="card">
+    <h2>Escáner QR</h2>
+
+    <p class="muted">
+      Escanea el código QR que muestra tu equipo automotriz
+      para guardar el enlace en el expediente.
+    </p>
+
+    <div class="actions no-print">
+      <button class="btn" type="button" id="startQrScan">
+        Escanear código QR
+      </button>
+      <button class="btn secondary" type="button" id="stopQrScan">
+        Detener cámara
+      </button>
+    </div>
+
+    <video id="qrVideo"
+      playsinline
+      class="hidden"
+      style="width:100%;max-width:420px;margin-top:12px;border-radius:12px">
+    </video>
+
+    <p id="qrStatus" class="muted">
+      Esperando para escanear.
+    </p>
+
+    <div class="field">
+      <label>Enlace guardado del QR</label>
+      <input
+        name="qrContent"
+        id="qrContent"
+        type="url"
+        placeholder="El enlace aparecerá aquí"
+      >
+    </div>
+
+    <div class="actions">
+      <a
+        id="qrOpenLink"
+        class="btn secondary hidden"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+      >Abrir enlace</a>
+    </div>
+  </div>
+</section>
 <div class="card no-print"><div class="actions"><button class="btn" type="button" id="saveBtn">Guardar expediente en este dispositivo</button><button class="btn secondary" type="button" id="loadBtn">Cargar folio</button></div><p id="status" class="muted">Los datos se guardan localmente en este navegador. Exporta respaldos periódicos.</p></div>
 </form>
 </main><footer>AutoBitácora · Prototipo inicial · No sustituye un sistema de respaldo y seguridad profesional.</footer>
