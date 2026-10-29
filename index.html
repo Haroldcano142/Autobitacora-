@@ -197,28 +197,33 @@ function getData(){
   data.savedAt=new Date().toISOString();
   return data;
 }
-function setData(d){form.reset();serviceItems=d.services||[];Object.entries(d).forEach(([k,v])=>{if(k==='checklist'||k==='services'||k==='savedAt'||k==='folio')return;const el=form.elements[k];if(el&&typeof v==='string'&&el.type!=='file')el.value=v});Object.entries(d.checklist||{}).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.checked=!!v});document.getElementById('folio').value=d.folio||'AB-0001';renderItems();document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.'
-signatureCtx.clearRect(
-  0, 0, signaturePad.clientWidth, signaturePad.clientHeight
-);
+function setData(d){
+  form.reset();
+  serviceItems=d.services||[];
 
-signatureHasInk = false;
+  Object.entries(d).forEach(([k,v])=>{
+    if(k==='services'||k==='savedAt'||k==='folio') return;
+    const el=form.elements[k];
+    if(el && typeof v==='string' && el.type!=='file') el.value=v;
+  });
 
-if (signatureData.value) {
-  const img = new Image();
+  document.getElementById('folio').value=d.folio||'AB-0001';
+  renderItems();
 
-  img.onload = () => {
-    signatureCtx.drawImage(
-      img, 0, 0,
-      signaturePad.clientWidth,
-      signaturePad.clientHeight
-    );
-    signatureHasInk = true;
-  };
+  document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.';
 
-  img.src = signatureData.value;
+  signatureCtx.clearRect(0,0,signaturePad.clientWidth,signaturePad.clientHeight);
+  signatureHasInk=false;
+
+  if(signatureData.value){
+    const img=new Image();
+    img.onload=()=>{
+      signatureCtx.drawImage(img,0,0,signaturePad.clientWidth,signaturePad.clientHeight);
+      signatureHasInk=true;
+    };
+    img.src=signatureData.value;
+  }
 }
-                   }
 function renderItems(){const list=document.getElementById('itemsList');list.innerHTML='';serviceItems.forEach((it,i)=>{const row=document.createElement('div');row.className='vehicle';row.innerHTML=`<strong>${escapeHtml(it.name)}</strong><span>${money(it.cost)}</span> <button type="button" class="btn secondary no-print" data-remove="${i}">Quitar</button>`;list.appendChild(row)});document.getElementById('total').textContent=money(serviceItems.reduce((s,x)=>s+Number(x.cost||0),0));list.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{serviceItems.splice(+b.dataset.remove,1);renderItems()})}
 function money(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n||0))}function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 document.getElementById('addItem').onclick=()=>{const name=document.getElementById('itemName').value.trim(),cost=Number(document.getElementById('itemCost').value);if(!name){alert('Escribe el concepto.');return}serviceItems.push({name,cost});document.getElementById('itemName').value='';document.getElementById('itemCost').value='';renderItems()};
