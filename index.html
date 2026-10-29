@@ -235,6 +235,105 @@ resizeSignaturePad();
   
   function switchTab(tab){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelectorAll('[id^="panel-"]').forEach(p=>p.classList.toggle('hidden',p.id!=='panel-'+tab))}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+  // Lector de códigos QR para AutoBitácora
+let qrStream = null;
+let qrScanning = false;
+
+const qrVideo = document.getElementById('qrVideo');
+const qrStatus = document.getElementById('qrStatus');
+const qrInput = document.getElementById('qrContent');
+const qrOpenLink = document.getElementById('qrOpenLink');
+
+function stopQrScan() {
+  qrScanning = false;
+
+  if (qrStream) {
+    qrStream.getTracks().forEach(track => track.stop());
+    qrStream = null;
+  }
+
+  qrVideo.srcObject = null;
+  qrVideo.classList.add('hidden');
+  qrStatus.textContent = 'Cámara detenida.';
+}
+
+function saveQrLink(content) {
+  const match = content.match(/https?:\/\/[^\s"'<>]+/i);
+
+  if (!match) {
+    qrStatus.textContent = 'El QR no contiene un enlace web válido.';
+    return;
+  }
+
+  const url = match[0].replace(/[),.;]+$/, '');
+
+  qrInput.value = url;
+  qrOpenLink.href = url;
+  qrOpenLink.classList.remove('hidden');
+
+  qrStatus.textContent = 'Enlace QR capturado. Guarda el expediente para conservarlo.';
+  stopQrScan();
+}
+
+document.getElementById('startQrScan').onclick = async () => {
+  if (!('BarcodeDetector' in window)) {
+    qrStatus.textContent =
+      'Tu navegador no admite lectura QR directa. Prueba con Chrome actualizado.';
+    return;
+  }
+
+  try {
+    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false
+    });
+
+    qrVideo.srcObject = qrStream;
+    qrVideo.classList.remove('hidden');
+    await qrVideo.play();
+
+    qrScanning = true;
+    qrStatus.textContent = 'Enfoca el código QR de tu escáner.';
+
+    const scan = async () => {
+      if (!qrScanning) return;
+
+      try {
+        const codes = await detector.detect(qrVideo);
+
+        if (codes.length) {
+          saveQrLink(codes[0].rawValue);
+          return;
+        }
+      } catch (error) {
+        qrStatus.textContent = 'No se pudo leer el QR. Intenta de nuevo.';
+      }
+
+      if (qrScanning) requestAnimationFrame(scan);
+    };
+
+    scan();
+
+  } catch (error) {
+    qrStatus.textContent =
+      'No se pudo abrir la cámara. Revisa los permisos del navegador.';
+  }
+};
+
+document.getElementById('stopQrScan').onclick = stopQrScan;
+
+qrInput.addEventListener('input', () => {
+  const value = qrInput.value.trim();
+
+  if (/^https?:\/\/\S+$/i.test(value)) {
+    qrOpenLink.href = value;
+    qrOpenLink.classList.remove('hidden');
+  } else {
+    qrOpenLink.classList.add('hidden');
+  }
+});
 function getData(){
   const data={};
   new FormData(form).forEach((v,k)=>{
