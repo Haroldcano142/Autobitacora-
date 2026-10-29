@@ -12,6 +12,32 @@
 <style>
 :root{--navy:#12304a;--blue:#176b87;--bg:#f3f6f8;--line:#dbe3e8;--ink:#172b3a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+  
+.signature-wrap {
+  width: 100%;
+}
+
+#clientSignaturePad {
+  display: block;
+  width: 100%;
+  height: 180px;
+  background: #fff;
+  border: 2px dashed #9aaab5;
+  border-radius: 10px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.signature-wrap .actions {
+  margin-top: 8px;
+}
+
+@media print {
+  #clientSignaturePad {
+    border: 1px solid #aaa;
+  }
+}
+  
 header{background:var(--navy);color:white;padding:22px 18px 18px}header h1{margin:0;font-size:1.55rem}header p{margin:5px 0 0;color:#d4e6ef;font-size:.92rem}
 main{max-width:900px;margin:auto;padding:16px}.tabs{display:flex;gap:8px;overflow:auto;margin:0 0 14px}.tab{border:1px solid var(--line);background:white;border-radius:999px;padding:10px 14px;white-space:nowrap;color:var(--ink)}.tab.active{background:var(--blue);color:white;border-color:var(--blue)}
 .card{background:white;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #12304a0a}
@@ -65,6 +91,19 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
 <div class="field full"><label>Fotografías (se adjuntan a este expediente en este dispositivo)</label><input name="photos" id="photos" type="file" accept="image/*" capture="environment" multiple><div id="photoPreview" class="muted"></div></div>
 </div></div>
 </section>
+  
+<div class="card">
+  <h2>Firma del cliente</h2>
+  <p class="muted">El cliente puede firmar con el dedo dentro del recuadro.</p>
+  <div class="signature-wrap">
+    <canvas id="clientSignaturePad" aria-label="Recuadro para firma del cliente"></canvas>
+    <input type="hidden" name="clientSignature" id="clientSignatureData">
+    <div class="actions no-print">
+      <button class="btn secondary" type="button" id="clearSignature">Borrar firma</button>
+    </div>
+  </div>
+</div>
+  
 <section id="panel-checklist" class="hidden"><div class="card"><h2>Checklist de recepción</h2><p class="muted">Marca cada elemento y registra daños u observaciones.</p><div id="checklist" class="checklist"></div><div class="field" style="margin-top:14px"><label>Daños / observaciones de recepción</label><textarea name="damageNotes" placeholder="Ej. rayón en puerta derecha, golpe en defensa..."></textarea></div></div></section>
 <section id="panel-services" class="hidden"><div class="card"><h2>Servicios, refacciones y costos</h2><div class="grid"><div class="field"><label>Concepto</label><input id="itemName" placeholder="Afinación, aceite, filtro..."></div><div class="field"><label>Costo (MXN)</label><input id="itemCost" type="number" min="0" step=".01" placeholder="0.00"></div></div><div class="actions"><button class="btn secondary" type="button" id="addItem">Agregar concepto</button></div><div id="itemsList"></div><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div>Total estimado: <span id="total" class="total">$0.00 MXN</span></div><div class="field" style="margin-top:12px"><label>Trabajo realizado / recomendaciones</label><textarea name="workNotes"></textarea></div></div></section>
 <section id="panel-scanner" class="hidden"><div class="card"><h2>Reporte de escáner</h2><div class="grid"><div class="field"><label>Fecha del diagnóstico</label><input name="scanDate" type="date"></div><div class="field"><label>Equipo / escáner</label><input name="scanTool" placeholder="Marca o modelo"></div><div class="field full"><label>Códigos DTC (ej. P0301)</label><input name="dtc" placeholder="Separar varios códigos con coma"></div><div class="field full"><label>Resultado / diagnóstico</label><textarea name="scanNotes" placeholder="Describe códigos, datos y conclusiones"></textarea></div><div class="field full"><label>Adjuntar reporte o foto</label><input name="scanFile" type="file" accept="image/*,.pdf"></div><div class="field full"><label>QR del reporte (si el proveedor proporciona un enlace, pega aquí el contenido)</label><input name="qrContent" placeholder="Texto o enlace obtenido del QR"></div></div><p class="muted">Esta primera versión permite guardar el contenido del QR manualmente. El escaneo directo con cámara se integrará en una siguiente etapa.</p></div></section>
@@ -78,7 +117,80 @@ const checklistEl=document.getElementById('checklist');
 checklistItems.forEach((item,i)=>{const lab=document.createElement('label');lab.className='check';lab.innerHTML=`<input type="checkbox" name="check_${i}"> <span>${item}</span>`;checklistEl.appendChild(lab)});
 let serviceItems=[]; let currentId=null;
 const form=document.getElementById('recordForm');
-function switchTab(tab){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelectorAll('[id^="panel-"]').forEach(p=>p.classList.toggle('hidden',p.id!=='panel-'+tab))}
+
+const signaturePad = document.getElementById('clientSignaturePad');
+const signatureCtx = signaturePad.getContext('2d');
+const signatureData = document.getElementById('clientSignatureData');
+
+let signatureDrawing = false;
+let signatureHasInk = false;
+
+function resizeSignaturePad() {
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  const saved = signatureData.value;
+  signaturePad.width = signaturePad.clientWidth * ratio;
+  signaturePad.height = signaturePad.clientHeight * ratio;
+  signatureCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  signatureCtx.lineWidth = 2.4;
+  signatureCtx.lineCap = 'round';
+  signatureCtx.lineJoin = 'round';
+  signatureCtx.strokeStyle = '#172b3a';
+  signatureCtx.clearRect(0, 0, signaturePad.clientWidth, signaturePad.clientHeight);
+
+  if (saved) {
+    const img = new Image();
+    img.onload = () => {
+      signatureCtx.drawImage(img, 0, 0, signaturePad.clientWidth, signaturePad.clientHeight);
+      signatureHasInk = true;
+    };
+    img.src = saved;
+  }
+}
+
+function signaturePoint(e) {
+  const r = signaturePad.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+signaturePad.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  signatureDrawing = true;
+  signaturePad.setPointerCapture(e.pointerId);
+  const p = signaturePoint(e);
+  signatureCtx.beginPath();
+  signatureCtx.moveTo(p.x, p.y);
+  signatureCtx.lineTo(p.x + 0.1, p.y + 0.1);
+  signatureCtx.stroke();
+  signatureHasInk = true;
+});
+
+signaturePad.addEventListener('pointermove', e => {
+  if (!signatureDrawing) return;
+  e.preventDefault();
+  const p = signaturePoint(e);
+  signatureCtx.lineTo(p.x, p.y);
+  signatureCtx.stroke();
+});
+
+function finishSignature() {
+  if (!signatureDrawing) return;
+  signatureDrawing = false;
+  signatureData.value = signatureHasInk ? signaturePad.toDataURL('image/png') : '';
+}
+
+signaturePad.addEventListener('pointerup', finishSignature);
+signaturePad.addEventListener('pointercancel', finishSignature);
+
+document.getElementById('clearSignature').onclick = () => {
+  signatureCtx.clearRect(0, 0, signaturePad.clientWidth, signaturePad.clientHeight);
+  signatureData.value = '';
+  signatureHasInk = false;
+};
+
+window.addEventListener('resize', resizeSignaturePad);
+resizeSignaturePad();
+  
+  function switchTab(tab){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelectorAll('[id^="panel-"]').forEach(p=>p.classList.toggle('hidden',p.id!=='panel-'+tab))}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 function getData(){const data={};new FormData(form).forEach((v,k)=>{if(!(v instanceof File))data[k]=v});data.checklist={};form.querySelectorAll('input[type=checkbox]').forEach(x=>data.checklist[x.name]=x.checked);data.services=serviceItems;data.folio=form.elements.folio?.value||document.getElementById('folio').value;data.savedAt=new Date().toISOString();return data}
 function setData(d){form.reset();serviceItems=d.services||[];Object.entries(d).forEach(([k,v])=>{if(k==='checklist'||k==='services'||k==='savedAt'||k==='folio')return;const el=form.elements[k];if(el&&typeof v==='string'&&el.type!=='file')el.value=v});Object.entries(d.checklist||{}).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.checked=!!v});document.getElementById('folio').value=d.folio||'AB-0001';renderItems();document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.'
