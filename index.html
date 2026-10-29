@@ -229,19 +229,6 @@ serviceItems=[];renderItems();document.getElementById('folio').value='AB-'+Strin
 document.getElementById('searchBtn').onclick=()=>{const q=document.getElementById('search').value.toLowerCase().trim();const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');const matches=Object.values(db).filter(d=>!q||JSON.stringify(d).toLowerCase().includes(q));const out=document.getElementById('searchResults');out.innerHTML='';if(!matches.length){out.textContent='No se encontraron expedientes.';return}matches.forEach(d=>{const el=document.createElement('div');el.className='vehicle';el.innerHTML=`<strong>${escapeHtml(d.folio)} · ${escapeHtml([d.make,d.model,d.year].filter(Boolean).join(' '))}</strong><span>${escapeHtml(d.plates||'Sin placas')} · ${escapeHtml(d.clientName||'Sin cliente')}</span> <button type="button" class="btn secondary">Abrir</button>`;el.querySelector('button').onclick=()=>{setData(d);switchTab('vehicle')};out.appendChild(el)})};
 document.getElementById('exportBtn').onclick=()=>{const blob=new Blob([localStorage.getItem('autobitacora_records')||'{}'],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='autobitacora-respaldo.json';a.click();URL.revokeObjectURL(a.href)};
 document.getElementById('importFile').onchange=async e=>{try{const obj=JSON.parse(await e.target.files[0].text());const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');localStorage.setItem('autobitacora_records',JSON.stringify({...db,...obj}));document.getElementById('status').textContent='Respaldo importado.'}catch{alert('No se pudo leer el respaldo.')}};
-document.getElementById('pdfBtn').onclick = () => {
-  finishSignature();
-
-  const privateField = form.elements.privateNotes;
-  const old = privateField.value;
-
-  privateField.value = '[Nota privada excluida del reporte]';
-
-  window.print();
-
-  privateField.value = old;
-};
-  
 document.getElementById('photos').onchange=e=>{document.getElementById('photoPreview').textContent=`${e.target.files.length} archivo(s) seleccionado(s). Nota: los archivos no se guardan de forma permanente en esta versión.`};
 form.elements.received.value=new Date().toISOString().slice(0,10);renderItems();
 
