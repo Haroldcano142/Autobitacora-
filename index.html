@@ -52,14 +52,19 @@ footer{text-align:center;padding:18px;color:#617582;font-size:.8rem}
 <header><h1>🚘 AutoBitácora</h1><p>Expediente digital de servicio automotriz</p></header>
 <main>
 <div class="card no-print" id="voiceAssistantCard">
-  <h2>🎙️ Asistente de voz</h2>
-  <p class="muted">Te guiaré por los datos del expediente. Responde hablando y revisarás la información antes de guardarla.</p>
+  <h2>🎙️ Captura por voz</h2>
+  <p class="muted">Habla con naturalidad y menciona varios datos juntos. Después revisa el texto y procesa la captura; nada se guarda automáticamente.</p>
   <div class="actions">
-    <button class="btn" type="button" id="voiceStartBtn">Iniciar asistente</button>
-    <button class="btn secondary" type="button" id="voiceRepeatBtn">Repetir pregunta</button>
-    <button class="btn secondary" type="button" id="voiceStopBtn">Detener</button>
+    <button class="btn" type="button" id="voiceStartBtn">Iniciar dictado</button>
+    <button class="btn secondary" type="button" id="voiceStopBtn">Detener dictado</button>
+    <button class="btn secondary" type="button" id="voiceProcessBtn">Procesar datos dictados</button>
+    <button class="btn secondary" type="button" id="voiceClearBtn">Limpiar texto</button>
   </div>
-  <p id="voiceStatus" class="muted" aria-live="polite">Listo para ayudarte. Usa Chrome y permite el micrófono cuando lo solicite.</p>
+  <div class="field" style="margin-top:12px">
+    <label for="voiceTranscript">Lo que dictaste</label>
+    <textarea id="voiceTranscript" placeholder="Ej. El cliente se llama Carlos, teléfono 222..., trae un Nissan Versa 2022, gris, con 85 mil kilómetros."></textarea>
+  </div>
+  <p id="voiceStatus" class="muted" aria-live="polite">Listo. Pulsa Iniciar dictado y permite el micrófono.</p>
 </div>
 <div class="card no-print">
   <h2>Google Drive</h2>
@@ -480,71 +485,114 @@ document.getElementById('photos').onchange=e=>{
 form.elements.received.value=new Date().toISOString().slice(0,10);renderItems();
 
 const voiceStatus=document.getElementById('voiceStatus');
+const voiceTranscript=document.getElementById('voiceTranscript');
 const SpeechRecognitionAPI=window.SpeechRecognition||window.webkitSpeechRecognition;
-let voiceRecognition=null,voiceStep=0,voiceActive=false,voiceWaitingNext=false;
-const voiceSteps=[
- {selector:'[name="clientName"]',prompt:'¿Cuál es el nombre del cliente?'},
- {selector:'[name="phone"]',prompt:'¿Cuál es el teléfono del cliente?'},
- {selector:'[name="email"]',prompt:'¿Cuál es el correo electrónico?'},
- {selector:'[name="make"]',prompt:'¿Cuál es la marca del vehículo?'},
- {selector:'[name="model"]',prompt:'¿Cuál es el modelo?'},
- {selector:'[name="year"]',prompt:'¿De qué año es?'},
- {selector:'[name="plates"]',prompt:'¿Cuáles son las placas?'},
- {selector:'[name="vin"]',prompt:'¿Cuál es el número de serie o VIN?'},
- {selector:'[name="mileage"]',prompt:'¿Cuál es el kilometraje actual?'},
- {selector:'[name="color"]',prompt:'¿De qué color es?'},
- {selector:'[name="complaint"]',prompt:'¿Cuál es el motivo de ingreso o queja del cliente?'},
- {selector:'[name="damageNotes"]',prompt:'¿Qué daños u observaciones presenta al recibirlo?'},
- {selector:'[name="workNotes"]',prompt:'¿Qué trabajo se realizó o qué recomendaciones deseas anotar?',tab:'services'}
-];
-function voiceSpeak(message,done){
- if(!('speechSynthesis'in window)){voiceStatus.textContent='Este navegador no tiene voz de lectura.';return;}
- speechSynthesis.cancel();
- const u=new SpeechSynthesisUtterance(message);u.lang='es-MX';u.rate=.94;
- u.onend=()=>{if(voiceActive&&done)done();};speechSynthesis.speak(u);
-}
-function voiceListen(){
- if(!voiceActive||!voiceRecognition)return;
- try{voiceRecognition.start();}catch(e){voiceStatus.textContent='No se pudo activar el micrófono. Pulsa Repetir pregunta.';}
-}
-function voiceAsk(){
- if(!voiceActive)return;
- if(voiceStep>=voiceSteps.length){voiceActive=false;voiceStatus.textContent='Guía terminada. Revisa los datos antes de guardar.';voiceSpeak('Hemos terminado. Revisa los datos y guarda tu expediente cuando estés listo.');return;}
- const s=voiceSteps[voiceStep];if(s.tab)switchTab(s.tab);
- voiceWaitingNext=false;voiceStatus.textContent='Pregunta '+(voiceStep+1)+' de '+voiceSteps.length+': '+s.prompt;
- voiceSpeak(s.prompt,voiceListen);
-}
-function voiceStart(){
- if(!('speechSynthesis'in window)){voiceStatus.textContent='Tu navegador no admite voz. Prueba Chrome actualizado.';return;}
- if(!SpeechRecognitionAPI){voiceStatus.textContent='Tu navegador no admite dictado integrado. Puedes usar el micrófono del teclado; la voz del asistente sí puede funcionar.';}
- else{
-  if(voiceRecognition){try{voiceRecognition.abort();}catch(e){}}
-  voiceRecognition=new SpeechRecognitionAPI();voiceRecognition.lang='es-MX';voiceRecognition.continuous=false;voiceRecognition.interimResults=false;
-  voiceRecognition.onresult=e=>{
-   const said=e.results[e.results.length-1][0].transcript.trim();
-   const cmd=said.toLowerCase().replace(/[.!?]/g,'').trim();
-   if(cmd==='terminar'||cmd==='detener'||cmd==='cancelar'){voiceStop();return;}
-   if(cmd==='repetir'||cmd==='repite'||cmd==='otra vez'){voiceAsk();return;}
-   if(voiceWaitingNext){
-    if(cmd==='siguiente'||cmd==='continuar'||cmd==='adelante'){voiceStep++;voiceAsk();return;}
-    const f=document.querySelector(voiceSteps[voiceStep].selector);if(f){f.value=said;f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));}
-    voiceStatus.textContent='Dato actualizado: '+said+'. Di siguiente para continuar.';
-   }else{
-    const f=document.querySelector(voiceSteps[voiceStep].selector);if(f){f.value=said;f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));}
-    voiceWaitingNext=true;voiceStatus.textContent='Escribí: '+said+'. Di siguiente para continuar o repite para escuchar la pregunta.';
-    voiceSpeak('He escrito tu respuesta. Di siguiente para continuar, o repite para escuchar la pregunta.',voiceListen);return;
-   }
-   voiceListen();
-  };
-  voiceRecognition.onerror=e=>{if(voiceActive)voiceStatus.textContent=e.error==='not-allowed'?'Permite el micrófono en Chrome para dictar.':'No pude escuchar. Pulsa Repetir pregunta o intenta otra vez.';};
+let voiceRecognition=null;
+let voiceActive=false;
+function startVoiceDictation(){
+ if(!SpeechRecognitionAPI){
+  voiceStatus.textContent='Este navegador no ofrece reconocimiento de voz. Puedes dictar con el micrófono del teclado y luego pulsar Procesar datos dictados.';
+  return;
  }
- voiceActive=true;voiceStep=0;voiceStatus.textContent='Asistente iniciado.';
- voiceSpeak('Hola. Soy tu asistente de AutoBitácora. Te haré preguntas para llenar el expediente. Después de cada respuesta, di siguiente para continuar.',voiceAsk);
+ if(voiceActive)return;
+ voiceRecognition=new SpeechRecognitionAPI();
+ voiceRecognition.lang='es-MX';
+ voiceRecognition.continuous=true;
+ voiceRecognition.interimResults=true;
+ voiceRecognition.onresult=e=>{
+  let finalText='';
+  let interimText='';
+  for(let i=e.resultIndex;i<e.results.length;i++){
+   const part=e.results[i][0].transcript;
+   if(e.results[i].isFinal)finalText+=part+' ';
+   else interimText+=part;
+  }
+  if(finalText)voiceTranscript.value=(voiceTranscript.value+' '+finalText).trim();
+  voiceStatus.textContent='Escuchando… '+(interimText?' '+interimText:'');
+ };
+ voiceRecognition.onerror=e=>{
+  voiceStatus.textContent=e.error==='not-allowed'
+   ?'Permite el micrófono en Chrome para usar el dictado.'
+   :'No se pudo continuar el dictado: '+e.error+'. Puedes usar el micrófono del teclado.';
+ };
+ voiceRecognition.onend=()=>{
+  voiceActive=false;
+  voiceStatus.textContent=voiceTranscript.value.trim()
+   ?'Dictado detenido. Revisa el texto y pulsa Procesar datos dictados.'
+   :'Dictado detenido. Puedes volver a iniciarlo.';
+ };
+ try{
+  voiceRecognition.start();
+  voiceActive=true;
+  voiceStatus.textContent='Escuchando. Habla con naturalidad; puedes mencionar varios datos juntos.';
+ }catch(e){
+  voiceActive=false;
+  voiceStatus.textContent='No se pudo iniciar el micrófono. Intenta de nuevo o usa el micrófono del teclado.';
+ }
 }
-function voiceStop(){voiceActive=false;if(voiceRecognition){try{voiceRecognition.abort();}catch(e){}}if('speechSynthesis'in window)speechSynthesis.cancel();voiceStatus.textContent='Asistente detenido. Tus respuestas dictadas permanecen escritas.';}
-document.getElementById('voiceStartBtn').addEventListener('click',voiceStart);
-document.getElementById('voiceRepeatBtn').addEventListener('click',()=>{if(voiceActive)voiceAsk();else voiceStatus.textContent='Pulsa Iniciar asistente primero.';});
-document.getElementById('voiceStopBtn').addEventListener('click',voiceStop);
+function stopVoiceDictation(){
+ if(voiceRecognition&&voiceActive){
+  try{voiceRecognition.stop();}catch(e){}
+ }
+ voiceActive=false;
+ voiceStatus.textContent='Dictado detenido. Revisa el texto antes de procesarlo.';
+}
+function setVoiceField(name,value){
+ const field=form.elements[name];
+ if(!field||!value)return false;
+ field.value=value.trim().replace(/[.,;]+$/,'');
+ field.dispatchEvent(new Event('input',{bubbles:true}));
+ field.dispatchEvent(new Event('change',{bubbles:true}));
+ return true;
+}
+function captureVoiceData(){
+ const raw=voiceTranscript.value.trim();
+ if(!raw){voiceStatus.textContent='Primero dicta o escribe algo en el cuadro.';return;}
+ let text=raw.replace(/\s+/g,' ').trim();
+ const found=[];
+ const patterns=[
+  {name:'clientName',re:/(?:el cliente se llama|cliente llamado|nombre del cliente es|a nombre de)\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]+?)(?=,|\.|;|\s+(?:teléfono|celular|trae|viene|ingresa|con un|tiene)\b|$)/i},
+  {name:'phone',re:/(?:teléfono|celular|número)\s*(?:es|de)?\s*([+\d][\d\s()-]{7,})/i},
+  {name:'email',re:/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/i},
+  {name:'year',re:/(?:año\s*(?:es|del)?|modelo\s*año)\s*(20\d{2}|19\d{2})\b/i},
+  {name:'plates',re:/(?:placas?\s*(?:son|es|:)?\s*)([A-Z0-9-]{5,10})\b/i},
+  {name:'vin',re:/(?:vin|número de serie)\s*(?:es|:)?\s*([A-HJ-NPR-Z0-9]{17})\b/i},
+  {name:'mileage',re:/(?:kilometraje|kilómetros|kms?|km)\s*(?:actual(?:es)?|es|de|:)?\s*([\d,.]+)\s*(?:mil)?/i},
+  {name:'color',re:/(?:color\s*(?:es|:)?\s*)(negro|blanco|gris|plata|rojo|azul|verde|amarillo|café|marrón|beige|dorado|naranja)\b/i},
+  {name:'complaint',re:/(?:motivo de ingreso|queja del cliente|viene porque|ingresa porque|reporta que)\s*[:]?\s*(.+?)(?=\s+(?:daños|observaciones|trabajo realizado)\b|$)/i},
+  {name:'damageNotes',re:/(?:daños|observaciones de recepción)\s*[:]?\s*(.+?)(?=\s+(?:trabajo realizado|motivo de ingreso)\b|$)/i},
+  {name:'workNotes',re:/(?:trabajo realizado|se le realizó|reparación realizada)\s*[:]?\s*(.+)$/i}
+ ];
+ for(const item of patterns){
+  const m=text.match(item.re);
+  if(m&&m[1]){
+   let value=m[1].trim();
+   if(item.name==='mileage')value=value.replace(/[,.]/g,'');
+   if(item.name==='phone')value=value.trim();
+   if(setVoiceField(item.name,value))found.push(item.name);
+  }
+ }
+ const vehicleMatch=text.match(/\b(Nissan|Chevrolet|Ford|Volkswagen|VW|Toyota|Honda|Kia|Hyundai|Mazda|Dodge|Jeep|Renault|Peugeot|Suzuki|Mitsubishi|Seat|BMW|Mercedes[- ]?Benz|Audi)\s+([A-Za-z0-9-]+)(?:\s+(20\d{2}|19\d{2}))?/i);
+ if(vehicleMatch){
+  setVoiceField('make',vehicleMatch[1].toUpperCase()==='VW'?'Volkswagen':vehicleMatch[1]);
+  setVoiceField('model',vehicleMatch[2]);
+  if(vehicleMatch[3])setVoiceField('year',vehicleMatch[3]);
+  found.push('make','model');
+ }
+ if(found.length){
+  const unique=[...new Set(found)];
+  voiceStatus.textContent='Datos colocados en la ficha: '+unique.join(', ')+'. Revisa los campos y corrige lo necesario. Recuerda guardar manualmente.';
+  switchTab('vehicle');
+ }else{
+  voiceStatus.textContent='No identifiqué campos con suficiente certeza. El texto sigue disponible arriba; puedes corregirlo o dictar usando frases como “cliente se llama…”, “teléfono…”, “Nissan Versa 2022” y “kilometraje…”.';
+ }
+}
+document.getElementById('voiceStartBtn').addEventListener('click',startVoiceDictation);
+document.getElementById('voiceStopBtn').addEventListener('click',stopVoiceDictation);
+document.getElementById('voiceProcessBtn').addEventListener('click',captureVoiceData);
+document.getElementById('voiceClearBtn').addEventListener('click',()=>{
+ stopVoiceDictation();voiceTranscript.value='';voiceStatus.textContent='Texto limpiado. Puedes iniciar un nuevo dictado.';
+});
 
 
 // Integración inicial con Google Drive mediante Google Identity Services.
