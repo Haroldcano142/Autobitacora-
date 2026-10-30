@@ -403,7 +403,7 @@ savedPhotos.forEach(photo=>{
   document.getElementById('folio').value=d.folio||'AB-0001';
   renderItems();
 
-  document.getElementById('status').textContent='Expediente cargado. Los archivos adjuntos deben volver a seleccionarse si no se conservaron.';
+  document.getElementById('status').textContent='Expediente cargado con '+savedPhotos.length+' fotografía(s).';
 
   signatureCtx.clearRect(0,0,signaturePad.clientWidth,signaturePad.clientHeight);
   signatureHasInk=false;
@@ -420,7 +420,24 @@ savedPhotos.forEach(photo=>{
 function renderItems(){const list=document.getElementById('itemsList');list.innerHTML='';serviceItems.forEach((it,i)=>{const row=document.createElement('div');row.className='vehicle';row.innerHTML=`<strong>${escapeHtml(it.name)}</strong><span>${money(it.cost)}</span> <button type="button" class="btn secondary no-print" data-remove="${i}">Quitar</button>`;list.appendChild(row)});document.getElementById('total').textContent=money(serviceItems.reduce((s,x)=>s+Number(x.cost||0),0));list.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{serviceItems.splice(+b.dataset.remove,1);renderItems()})}
 function money(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n||0))}function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 document.getElementById('addItem').onclick=()=>{const name=document.getElementById('itemName').value.trim(),cost=Number(document.getElementById('itemCost').value);if(!name){alert('Escribe el concepto.');return}serviceItems.push({name,cost});document.getElementById('itemName').value='';document.getElementById('itemCost').value='';renderItems()};
-document.getElementById('saveBtn').onclick=()=>{const d=getData();if(!d.folio.trim()){alert('Indica un folio.');return}let db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');db[d.folio]=d;localStorage.setItem('autobitacora_records',JSON.stringify(db));currentId=d.folio;document.getElementById('status').textContent='Guardado localmente con folio '+d.folio+'. Exporta un respaldo para no perderlo.'};
+document.getElementById('saveBtn').onclick=async()=>{
+  const status=document.getElementById('status');
+  try{
+    const d=getData();
+    if(!d.folio.trim()){alert('Indica un folio.');return;}
+    status.textContent='Preparando fotografías y guardando expediente...';
+    const photoFiles=Array.from(document.getElementById('photos').files||[]);
+    d.photos=photoFiles.length?await Promise.all(photoFiles.map(readPhotoAsDataURL)):savedPhotos;
+    const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');
+    db[d.folio]=d;
+    localStorage.setItem('autobitacora_records',JSON.stringify(db));
+    savedPhotos=d.photos;
+    currentId=d.folio;
+    status.textContent='Expediente y '+d.photos.length+' fotografía(s) guardados en este dispositivo. También puedes exportar un respaldo.';
+  }catch(error){
+    status.textContent='No se pudo guardar en este dispositivo. El almacenamiento del navegador puede estar lleno; exporta o elimina respaldos antiguos. Detalle: '+error.message;
+  }
+};
 document.getElementById('loadBtn').onclick=()=>{const id=document.getElementById('folio').value.trim();const d=JSON.parse(localStorage.getItem('autobitacora_records')||'{}')[id];if(d)setData(d);else document.getElementById('status').textContent='No se encontró ese folio en este navegador.'};
 document.getElementById('newBtn').onclick=()=>{form.reset();
 signatureCtx.clearRect(
@@ -428,7 +445,7 @@ signatureCtx.clearRect(
 );
 signatureData.value = '';
 signatureHasInk = false;
-serviceItems=[];renderItems();document.getElementById('folio').value='AB-'+String(Date.now()).slice(-6);document.getElementById('searchResults').innerHTML='';switchTab('vehicle');document.getElementById('status').textContent='Nuevo expediente. Completa los datos y guarda.'};
+serviceItems=[];savedPhotos=[];document.getElementById('photos').value='';document.getElementById('photoPreview').innerHTML='';renderItems();document.getElementById('folio').value='AB-'+String(Date.now()).slice(-6);document.getElementById('searchResults').innerHTML='';switchTab('vehicle');document.getElementById('status').textContent='Nuevo expediente. Completa los datos y guarda.'};
 document.getElementById('searchBtn').onclick=()=>{const q=document.getElementById('search').value.toLowerCase().trim();const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');const matches=Object.values(db).filter(d=>!q||JSON.stringify(d).toLowerCase().includes(q));const out=document.getElementById('searchResults');out.innerHTML='';if(!matches.length){out.textContent='No se encontraron expedientes.';return}matches.forEach(d=>{const el=document.createElement('div');el.className='vehicle';el.innerHTML=`<strong>${escapeHtml(d.folio)} · ${escapeHtml([d.make,d.model,d.year].filter(Boolean).join(' '))}</strong><span>${escapeHtml(d.plates||'Sin placas')} · ${escapeHtml(d.clientName||'Sin cliente')}</span> <button type="button" class="btn secondary">Abrir</button>`;el.querySelector('button').onclick=()=>{setData(d);switchTab('vehicle')};out.appendChild(el)})};
 document.getElementById('exportBtn').onclick=()=>{const blob=new Blob([localStorage.getItem('autobitacora_records')||'{}'],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='autobitacora-respaldo.json';a.click();URL.revokeObjectURL(a.href)};
 document.getElementById('importFile').onchange=async e=>{try{const obj=JSON.parse(await e.target.files[0].text());const db=JSON.parse(localStorage.getItem('autobitacora_records')||'{}');localStorage.setItem('autobitacora_records',JSON.stringify({...db,...obj}));document.getElementById('status').textContent='Respaldo importado.'}catch{alert('No se pudo leer el respaldo.')}};
