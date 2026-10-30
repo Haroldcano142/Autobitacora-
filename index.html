@@ -337,15 +337,36 @@ qrInput.addEventListener('input', () => {
   function readPhotoAsDataURL(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
-    reader.onload=()=>resolve({
-      name:file.name,
-      type:file.type,
-      data:reader.result
-    });
+
+    reader.onload=()=>{
+      const img=new Image();
+
+      img.onload=()=>{
+        const max=1600;
+        const scale=Math.min(1,max/Math.max(img.width,img.height));
+        const canvas=document.createElement('canvas');
+
+        canvas.width=Math.round(img.width*scale);
+        canvas.height=Math.round(img.height*scale);
+
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+        resolve({
+          name:file.name,
+          type:'image/jpeg',
+          data:canvas.toDataURL('image/jpeg',0.75)
+        });
+      };
+
+      img.onerror=()=>reject(new Error('No se pudo procesar una fotografía.'));
+      img.src=reader.result;
+    };
+
     reader.onerror=()=>reject(new Error('No se pudo leer una fotografía.'));
     reader.readAsDataURL(file);
   });
-}
+  }
 function getData(){
   const data={};
   new FormData(form).forEach((v,k)=>{
