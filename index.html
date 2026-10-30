@@ -482,7 +482,7 @@ function driveConfigured(){
     window.AUTOBITACORA_CONFIG.GOOGLE_CLIENT_ID &&
     !String(window.AUTOBITACORA_CONFIG.GOOGLE_CLIENT_ID).includes('PEGA_AQUI');
 }
-function initDrive(){
+function initDrive(autoReconnect=false){
   if(!driveConfigured()){
     driveStatus('Falta configurar el ID de cliente OAuth en config.js. No pegues el secreto del cliente.');
     return;
@@ -495,16 +495,17 @@ function initDrive(){
     client_id: window.AUTOBITACORA_CONFIG.GOOGLE_CLIENT_ID,
     scope: DRIVE_SCOPE,
     callback: async (response)=>{
-      if(response.error){driveStatus('No se pudo autorizar Google Drive: '+response.error);return;}
+      if(response.error){driveStatus('No fue posible reconectar automáticamente. Pulsa «Conectar Google Drive» para autorizar de nuevo.');return;}
       driveAccessToken=response.access_token;
       driveReady=true;
       document.getElementById('driveSaveBtn').disabled=false;
       document.getElementById('driveListBtn').disabled=false;
-      driveStatus('Google Drive conectado temporalmente. Guarda o busca expedientes. Al cerrar o recargar tendrás que autorizar de nuevo.');
+      driveStatus('Google Drive conectado. Ya puedes guardar y buscar expedientes.');
       await listDriveRecords();
     }
   });
-  driveStatus('Listo para conectar Google Drive.');
+  driveStatus(autoReconnect?'Intentando reconectar Google Drive…':'Listo para conectar Google Drive.');
+  if(autoReconnect) driveTokenClient.requestAccessToken({prompt:''});
 }
 document.getElementById('driveConnectBtn').addEventListener('click',()=>{
   if(!driveConfigured()){driveStatus('Configura primero el ID de cliente OAuth en config.js.');return;}
@@ -578,7 +579,7 @@ d.photos=photoFiles.length?await Promise.all(photoFiles.map(readPhotoAsDataURL))
 }
 document.getElementById('driveSaveBtn').addEventListener('click',saveDriveRecord);
 document.getElementById('driveListBtn').addEventListener('click',listDriveRecords);
-window.addEventListener('load',()=>setTimeout(initDrive,900));
+window.addEventListener('load',()=>setTimeout(()=>initDrive(true),900));
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
