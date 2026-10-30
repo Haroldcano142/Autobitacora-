@@ -333,7 +333,8 @@ qrInput.addEventListener('input', () => {
   } else {
     qrOpenLink.classList.add('hidden');
   }
-});function readPhotoAsDataURL(file){
+});
+  function readPhotoAsDataURL(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
     reader.onload=()=>resolve({
