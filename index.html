@@ -510,6 +510,8 @@ async function saveDriveRecord(){
   try{
     if(!driveAccessToken)throw new Error('Primero conecta Google Drive.');
     const d=getData();
+const photoFiles=Array.from(document.getElementById('photos').files);
+d.photos=await Promise.all(photoFiles.map(readPhotoAsDataURL));
     if(!d.folio || !d.folio.trim())throw new Error('Indica un folio antes de guardar.');
     const fileName='AutoBitacora_'+d.folio.replace(/[^a-zA-Z0-9_-]/g,'_')+'.json';
     const q=encodeURIComponent("name = '"+fileName.replace(/'/g,"\\'")+"' and trashed = false");
