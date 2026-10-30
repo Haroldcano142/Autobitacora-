@@ -380,7 +380,19 @@ function getData(){
 function setData(d){
   form.reset();
   serviceItems=d.services||[];
+const savedPhotos=d.photos||[];
+const preview=document.getElementById('photoPreview');
+preview.innerHTML='';
 
+savedPhotos.forEach(photo=>{
+  const img=document.createElement('img');
+  img.src=photo.data;
+  img.alt=photo.name||'Fotografía del vehículo';
+  img.style.width='110px';
+  img.style.margin='5px';
+  img.style.borderRadius='8px';
+  preview.appendChild(img);
+});
   Object.entries(d).forEach(([k,v])=>{
     if(k==='services'||k==='savedAt'||k==='folio') return;
     const el=form.elements[k];
