@@ -377,10 +377,11 @@ function getData(){
   data.savedAt=new Date().toISOString();
   return data;
 }
+  let savedPhotos=[];
 function setData(d){
   form.reset();
   serviceItems=d.services||[];
-const savedPhotos=d.photos||[];
+savedPhotos=d.photos||[];
 const preview=document.getElementById('photoPreview');
 preview.innerHTML='';
 
